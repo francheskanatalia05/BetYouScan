@@ -46,80 +46,83 @@ export default function Register() {
     }
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError("");
+ const handleRegister = async (e) => {
+  e.preventDefault();
+  setError("");
 
-    if (formData.role === "admin" && adminKey !== ADMIN_SECRET_KEY) {
-      setError("Invalid admin registration key!");
-      return;
+  if (formData.role === "admin" && adminKey !== ADMIN_SECRET_KEY) {
+    setError("Invalid admin registration key!");
+    return;
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    setError("Passwords do not match!");
+    return;
+  }
+
+  if (formData.password.length < 6) {
+    setError("Password must be at least 6 characters!");
+    return;
+  }
+
+  // For students, student ID is required
+  if (formData.role === "student" && !formData.studentId) {
+    setError("Student ID is required for student registration!");
+    return;
+  }
+
+  // For students, department is required
+  if (formData.role === "student" && !formData.department) {
+    setError("Please select your department!");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // ===== CREATE USER IN FIREBASE =====
+    const userCredential = await createUserWithEmailAndPassword(
+      auth, 
+      formData.email, 
+      formData.password
+    );
+    
+    const user = userCredential.user;
+    
+    // ===== UPDATE PROFILE =====
+    await updateProfile(user, {
+      displayName: formData.name
+    });
+    
+    // ===== SAVE TO FIRESTORE =====
+    await setDoc(doc(db, "users", user.uid), {
+      name: formData.name,
+      email: formData.email,
+      studentId: formData.role === "admin" ? "ADMIN" : formData.studentId,
+      department: formData.role === "student" ? formData.department : "N/A",
+      role: formData.role,
+      createdAt: new Date().toISOString()
+    });
+    
+    // ===== LOGOUT USER TO PREVENT AUTO-LOGIN ISSUE =====
+    await auth.signOut();
+    
+    alert(`✅ Registration Successful! Please login with your credentials.\n\nAccount Type: ${formData.role.toUpperCase()}`);
+    
+    // ===== REDIRECT TO LOGIN PAGE =====
+    navigate("/login");
+    
+  } catch (err) {
+    if (err.code === "auth/email-already-in-use") {
+      setError("Email is already registered!");
+    } else {
+      setError("Registration failed. Please try again.");
     }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters!");
-      return;
-    }
-
-    // For students, student ID is required
-    if (formData.role === "student" && !formData.studentId) {
-      setError("Student ID is required for student registration!");
-      return;
-    }
-
-    // For students, department is required
-    if (formData.role === "student" && !formData.department) {
-      setError("Please select your department!");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        formData.email, 
-        formData.password
-      );
-      
-      const user = userCredential.user;
-      
-      await updateProfile(user, {
-        displayName: formData.name
-      });
-      
-      // Updated Firestore save with department field
-      await setDoc(doc(db, "users", user.uid), {
-        name: formData.name,
-        email: formData.email,
-        studentId: formData.role === "admin" ? "ADMIN" : formData.studentId,
-        department: formData.role === "student" ? formData.department : "N/A",
-        role: formData.role,
-        createdAt: new Date().toISOString()
-      });
-      
-      alert(`Registration Successful! Logging in as ${formData.role.toUpperCase()}`);
-      
-      if (formData.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/dashboard");
-      }
-    } catch (err) {
-      if (err.code === "auth/email-already-in-use") {
-        setError("Email is already registered!");
-      } else {
-        setError("Registration failed. Please try again.");
-      }
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="register-container">
@@ -259,9 +262,6 @@ export default function Register() {
                 onChange={(e) => setAdminKey(e.target.value)}
                 required
               />
-              <small style={{ color: "#666", fontSize: "0.7rem", display: "block", marginTop: "0.25rem" }}>
-                Key: BYSADMIN2026
-              </small>
             </div>
           )}
           

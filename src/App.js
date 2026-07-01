@@ -19,24 +19,34 @@ function App() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      console.log("🔍 App - Auth state changed. User:", user?.email || "No user");
       setUser(user);
       
       if (user) {
         // Fetch user role from Firestore
         try {
+          console.log("🔍 App - Fetching user document for:", user.uid);
           const userDoc = await getDoc(doc(db, "users", user.uid));
+          
           if (userDoc.exists()) {
-            const role = userDoc.data().role;
+            const userData = userDoc.data();
+            const role = userData?.role || "student";
+            console.log("✅ App - User document found:");
+            console.log("   - Name:", userData.name);
+            console.log("   - Email:", userData.email);
+            console.log("   - Role:", role);
+            console.log("   - Student ID:", userData.studentId);
             setUserRole(role);
-            console.log("User role from Firestore:", role);
           } else {
+            console.log("⚠️ App - No user document found for:", user.uid);
             setUserRole("student");
           }
         } catch (error) {
-          console.error("Error fetching user role:", error);
+          console.error("❌ App - Error fetching user role:", error);
           setUserRole("student");
         }
       } else {
+        console.log("🔍 App - No user logged in");
         setUserRole(null);
       }
       
@@ -50,8 +60,9 @@ function App() {
     return <div className="loading">LOADING INSTITUTIONAL ACCESS...</div>;
   }
 
-  console.log("Current user:", user?.email);
-  console.log("User role:", userRole);
+  console.log("📋 App - Final State:");
+  console.log("   - User:", user?.email || "No user");
+  console.log("   - Role:", userRole);
 
   return (
     <Router>
